@@ -1,0 +1,23 @@
+[Unit]
+Description=Pocket Cameras — your security cameras on your own server (needs ffmpeg)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=pocket-cameras
+Group=pocket-cameras
+ExecStart=/usr/local/bin/pocket-cameras
+Environment=DATA_DIR=/var/lib/pocket-cameras
+Environment=PORT=8080
+Environment=BASE_URL=https://cameras.example.com
+Environment=SECURE_COOKIES=true
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/pocket-cameras
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

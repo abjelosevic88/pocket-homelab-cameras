@@ -1,0 +1,6 @@
+# Pocket Cameras behind Caddy. flush_interval -1 keeps the live (MJPEG) view moving.
+cameras.example.com {
+	reverse_proxy pocket-cameras:8080 {
+		flush_interval -1
+	}
+}
