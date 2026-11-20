@@ -100,11 +100,9 @@ func yes(b bool) string {
 }
 
 func (s *Server) handleImport(w http.ResponseWriter, r *http.Request) {
+	// a link reaches this only with move:import (Pocket Move, for the
+	// person it acts for): the import only adds to that person's cameras
 	ctx := r.Context()
-	if linkApp(ctx) != "" {
-		writeErr(w, http.StatusForbidden, "apps cannot import")
-		return
-	}
 	b, err := s.readBody(r)
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, "could not read the file")

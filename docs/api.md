@@ -64,4 +64,6 @@ Times are ISO 8601 UTC; days are local `YYYY-MM-DD`.
 
 `GET /export.json`, `GET /export.csv` (every event), `POST /import` (a Pocket Cameras export or a Frigate `config.yml`), `GET /backup` (admin: the database).
 
+Pocket Move can copy your cameras and events out and bring them in: `GET /pocket/portable` describes `export.json` and `export.csv` (link scope `move:export`) and `POST /import` (`move:import`, raw body). Imports only add; a second run of the same file adds nothing. Passwords never travel.
+
 Health: `GET /healthz` (`{status, version, uptime, core_outbox}`), `GET /readyz`, `GET /metrics`.

@@ -21,6 +21,20 @@ var linkOffers = []core.Offer{
 	{Scope: "cameras:write", Name: "Change your cameras' mode", Description: "Switch the mode (Home, Away, Night, Off), mark events seen or keep them, add a note to an event, and ring the doorbell or raise an alarm on a camera (a Home Assistant button). Never changes a camera's settings, never deletes anything."},
 }
 
+// portable is what Pocket Move may copy out and bring in for a person
+// (docs/move.md in pocket-homelab-core); Register adds move:export/import.
+// Cameras travel without their passwords; recordings stay on the box.
+var portable = &core.Portable{
+	Exports: []core.PortableExport{
+		{Path: "/api/v1/export.json", File: "cameras.json", Kind: core.KindPocket, Title: "Your cameras (without passwords), every event with what was seen, and the changes of mode"},
+		{Path: "/api/v1/export.csv", File: "camera-events.csv", Kind: core.KindCSV, Title: "Every event as a table"},
+	},
+	Imports: []core.PortableImport{
+		{Path: "/api/v1/import", Kind: core.KindPocket, ContentType: "application/json", Title: "Adds the cameras, events and modes from another box (fill in the camera passwords again); what you already have is left alone"},
+		{Path: "/api/v1/import", Kind: "frigate-yaml", ContentType: "application/yaml", Title: "Adds the cameras from a Frigate config.yml; cameras you already have are skipped"},
+	},
+}
+
 // linkRoute is one request a Pocket Core link token may make.
 type linkRoute struct {
 	methods string
@@ -43,6 +57,9 @@ var errLinkScope = errors.New("outside the link's scope")
 
 // linkAllows reports whether a link token with these scopes may make this request.
 func linkAllows(scopes []string, r *http.Request) bool {
+	if portable.LinkAllows(scopes, r) {
+		return true
+	}
 	for _, lr := range linkRoutes {
 		if !strings.Contains(" "+lr.methods+" ", " "+r.Method+" ") || !lr.path.MatchString(r.URL.Path) {
 			continue
