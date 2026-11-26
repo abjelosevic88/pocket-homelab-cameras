@@ -181,14 +181,14 @@ export function DiscoverDialog({ onClose, onPick }: { onClose: () => void; onPic
   return (
     <Modal title="Find cameras on your network" onClose={onClose} size="lg">
       <div className="stack">
-        <p className="muted">{net.ok ? 'Pocket Network knows the devices on your network; cameras among them are listed below. You can also look through a range of addresses.' : 'Look through a range of addresses for cameras (anything answering on the RTSP port). With Pocket Network connected, the cameras it knows are listed at once.'}</p>
+        <p className="muted">{net.ok ? 'Pocket Network knows the devices on your network; cameras among them are listed below. You can also look through a range of addresses, or check one.' : 'Look through a range of addresses for cameras (anything answering on the RTSP port), or check one address. With Pocket Network connected, the cameras it knows are listed at once.'}</p>
         <div className="row">
-          <input value={subnet} onChange={e => setSubnet(e.target.value)} placeholder="192.168.1.0/24" aria-label="Address range" style={{ maxWidth: 220 }} />
+          <input value={subnet} onChange={e => setSubnet(e.target.value)} placeholder="192.168.1.0/24 or one address" aria-label="Address range or one address" style={{ maxWidth: 240 }} />
           <button type="button" className="btn" disabled={busy || !subnet.trim()} onClick={() => run(true)}>{busy ? <Spinner /> : <Icon name="scan" size={14} />}Look</button>
           {busy && <span className="muted small">Up to 40 seconds…</span>}
         </div>
         {err && <div className="callout danger"><Icon name="alert" size={15} /><span>{err}</span></div>}
-        {res?.note && <p className="muted small">{res.note}</p>}
+        {res?.note && <div className="callout"><Icon name="alert" size={15} /><span>{res.note}</span></div>}
         {res && (res.found.length ? <div className="found-list">
           {res.found.map(x => (
             <div key={x.ip} className="found-row">
@@ -198,7 +198,7 @@ export function DiscoverDialog({ onClose, onPick }: { onClose: () => void; onPic
               <button type="button" className="btn sm" disabled={x.added} onClick={() => onPick(x)}>Add</button>
             </div>
           ))}
-        </div> : <p className="muted">Nothing found{subnet ? ' in that range' : ''}.</p>)}
+        </div> : <p className="muted">Nothing found{subnet.includes('/') ? ' in that range' : ''}.</p>)}
       </div>
     </Modal>
   )

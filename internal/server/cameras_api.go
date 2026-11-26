@@ -507,7 +507,14 @@ func (s *Server) handleDiscover(w http.ResponseWriter, r *http.Request) {
 		note = "Pocket Network: " + err.Error()
 	}
 	subnet := strings.TrimSpace(in.Subnet)
-	if subnet != "" {
+	if ip := net.ParseIP(subnet); ip != nil && ip.To4() != nil {
+		// One address: look at that camera only, on every port cameras use, and say plainly if it doesn't answer.
+		if f, ok := checkHost(ctx, ip.String()); ok {
+			add(f)
+		} else {
+			note = joinNonEmpty(" ", note, fmt.Sprintf("%s doesn't answer this server on any camera port (%s). Check the address, and that the camera isn't on a guest or separate Wi-Fi, or behind Wi-Fi client isolation — the server must be able to reach it.", ip, portList(cameraPorts)))
+		}
+	} else if subnet != "" {
 		list, err := scanSubnet(ctx, subnet)
 		if err != nil {
 			s.userFail(w, err, "scan")
@@ -577,6 +584,60 @@ func scanSubnet(ctx context.Context, subnet string) ([]found, error) {
 	wg.Wait()
 	slices.SortFunc(out, func(a, b found) int { return strings.Compare(fmt.Sprintf("%15s", a.IP), fmt.Sprintf("%15s", b.IP)) })
 	return out, nil
+}
+
+// cameraPorts are where cameras answer: RTSP, web, and the makers' own (Hikvision 8000, Dahua 37777, XMEye 34567, Imou/Foscam 88/8899…).
+var cameraPorts = []int{554, 8554, 80, 443, 8080, 8000, 88, 8899, 37777, 34567, 2020}
+
+func portList(ports []int) string {
+	s := make([]string, len(ports))
+	for i, p := range ports {
+		s[i] = fmt.Sprint(p)
+	}
+	return strings.Join(s, ", ")
+}
+
+// checkHost looks at one address on every camera port at once.
+func checkHost(ctx context.Context, ip string) (found, bool) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	open := make([]bool, len(cameraPorts))
+	var wg sync.WaitGroup
+	for i, p := range cameraPorts {
+		wg.Add(1)
+		go func(i, p int) {
+			defer wg.Done()
+			d := net.Dialer{Timeout: 2 * time.Second}
+			if c, err := d.DialContext(ctx, "tcp", net.JoinHostPort(ip, fmt.Sprint(p))); err == nil {
+				c.Close()
+				open[i] = true
+			}
+		}(i, p)
+	}
+	wg.Wait()
+	f := found{IP: ip, From: "scan", Online: true}
+	any := false
+	for i, p := range cameraPorts {
+		if !open[i] {
+			continue
+		}
+		any = true
+		switch p {
+		case 554, 8554:
+			f.RTSP = true
+		case 80:
+			f.Web = true
+		}
+	}
+	if !any {
+		return f, false
+	}
+	if f.Web {
+		if title := webTitle(ctx, ip); title != "" {
+			f.Name, f.Brand = title, capture.GuessBrand(title)
+		}
+	}
+	return f, true
 }
 
 func portOpen(ctx context.Context, ip string, port int) bool {
