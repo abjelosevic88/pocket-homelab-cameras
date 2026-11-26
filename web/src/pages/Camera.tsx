@@ -140,7 +140,8 @@ function SettingsTab({ cam, onSaved, onDeleted }: { cam: Camera; onSaved: () => 
   const { toast } = useToast()
   const { users, user, settings } = useApp()
   const appState = useAppState()
-  const homeOk = appState('home', 'home:read').ok
+  const home = appState('home', 'home:read')
+  const homeOk = home.ok
   const things = useList<{ id: string; name: string; room: string; brand: string; url: string }>('/apps/home/things', 'things', homeOk)
   const [edit, setEdit] = useState(false)
   const [del, setDel] = useState(false)
@@ -216,9 +217,10 @@ function SettingsTab({ cam, onSaved, onDeleted }: { cam: Camera; onSaved: () => 
         <SettingRow title="Doorbell and alarm buttons" stack help={<>Send <code>POST</code> with your API token (Settings → API & shortcuts) from Home Assistant, a Shelly button or a Shortcut: the picture is kept and you are told.</>}>
           <div className="stack tight"><CopyField label="Ring" value={`${base}/api/v1/cameras/${cam.id}/ring`} /><CopyField label="Alarm" value={`${base}/api/v1/cameras/${cam.id}/trigger`} /></div>
         </SettingRow>
-        <SettingRow title="In Pocket Home" help={homeOk ? 'The camera as a thing in your home: its warranty and manual there, and a note in its log when it stays offline for a day (Settings → Connected apps).' : undefined}>
+        <SettingRow title="In Pocket Home" help={homeOk ? 'The camera as a thing in your home: its warranty and manual there, and a note in its log when it stays offline for a day (Settings → Connected apps).'
+          : <>Pocket Home is not connected: {home.app?.fix || 'see Settings → Connected apps'}.{!home.app && <CoreHint />}</>}>
           {homeOk ? <Select ariaLabel="Thing" value={cam.home_ref} onChange={v => save({ home_ref: v })} placeholder="Not linked" clearLabel="Not linked" options={(things || []).map(t => ({ value: t.id, label: t.name, hint: [t.room, t.brand].filter(Boolean).join(' · ') }))} />
-            : <span className="muted small">Needs Pocket Home <CoreHint /></span>}
+            : <span className="muted small nowrap">Not connected</span>}
         </SettingRow>
       </section>
 
