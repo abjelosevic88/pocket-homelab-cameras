@@ -24,7 +24,9 @@ export default function CameraPage() {
   const [params, setParams] = useSearchParams()
   const [cam, setCam] = useState<Camera | null>(null)
   const [err, setErr] = useState('')
-  const [hd, setHd] = useState(false)
+  // full quality unless the person switched it off (remembered on this device)
+  const [hd, setHdState] = useState(() => localStorage.getItem('pcam-hd') !== '0')
+  const setHd = (f: (h: boolean) => boolean) => setHdState(h => { const v = f(h); localStorage.setItem('pcam-hd', v ? '1' : '0'); return v })
   const tab = (params.get('tab') as Tab) || 'day'
   const load = useCallback(() => { api.get<Camera>(`${V1}/cameras/${id}`).then(c => { setCam(c); setErr('') }).catch(e => setErr(errMsg(e))) }, [id])
   useEffect(() => { load() }, [load])

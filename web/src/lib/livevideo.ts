@@ -71,6 +71,9 @@ function concat(chunks: Uint8Array[]): Uint8Array {
   return out
 }
 
+/** How far behind the newest picture the video plays (seconds), and when it jumps ahead. */
+const LIVE_TARGET = 0.08, LIVE_JUMP = 0.5
+
 export type LiveState = 'playing' | 'failed' | 'ended'
 
 /**
@@ -91,18 +94,29 @@ export function playLive(video: HTMLVideoElement, url: string, onState: (s: Live
     stopped = true
     ac.abort()
     window.clearTimeout(watchdog)
+    window.clearInterval(ticker)
     onState(s === 'failed' && played ? 'ended' : s)
   }
   // no picture after this long (a camera with a long key-frame gap, or video the browser will not decode)
   const watchdog = window.setTimeout(() => { if (!played) finish('failed') }, 15000)
 
+  // Stay as close to the newest picture as the stream allows: a jump when far
+  // behind (ffmpeg's first second arrives in one go, and a network hiccup
+  // piles pictures up), a slightly faster play when a little behind.
+  let jumped = false
   const keepLive = () => {
     const b = video.buffered
-    if (!b.length) return
+    if (!b.length || stopped) return
     const start = b.start(b.length - 1), end = b.end(b.length - 1)
-    if (video.currentTime < start || end - video.currentTime > 1.0) video.currentTime = Math.max(start, end - 0.15)
+    const behind = end - video.currentTime
+    if (video.currentTime < start || behind > LIVE_JUMP || (!jumped && behind > LIVE_TARGET * 2)) {
+      video.currentTime = Math.max(start, end - LIVE_TARGET)
+      jumped = true
+    } else if (behind > LIVE_TARGET * 2.5) video.playbackRate = 1.15
+    else if (behind < LIVE_TARGET * 1.2) video.playbackRate = 1
     if (video.paused) video.play().catch(() => {})
   }
+  const ticker = window.setInterval(keepLive, 200)
   const pump = () => {
     if (!sb || sb.updating || stopped) return
     const b = video.buffered
@@ -159,6 +173,7 @@ export function playLive(video: HTMLVideoElement, url: string, onState: (s: Live
     stopped = true
     ac.abort()
     window.clearTimeout(watchdog)
+    window.clearInterval(ticker)
     video.removeEventListener('playing', onPlaying)
     video.removeEventListener('error', onError)
     video.removeAttribute('src')
