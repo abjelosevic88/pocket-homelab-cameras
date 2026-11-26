@@ -107,16 +107,18 @@ export function LiveVideo({ id, hd, alt = '' }: { id: number; hd?: boolean; alt?
     document.addEventListener('visibilitychange', h)
     return () => document.removeEventListener('visibilitychange', h)
   }, [])
-  useEffect(() => { setPictures(!mediaSource()) }, [id, hd])
+  const fails = useRef(0)
+  useEffect(() => { setPictures(!mediaSource()); fails.current = 0 }, [id, hd])
   useEffect(() => {
     const v = ref.current
     if (pictures || !visible || !v) return
     setPlaying(false)
     let again = 0
     const stop = playLive(v, `${liveVideoURL(id, hd)}&n=${n}`, s => {
-      if (s === 'playing') setPlaying(true)
-      else if (s === 'failed') setPictures(true)
-      else { setPlaying(false); again = window.setTimeout(() => setN(x => x + 1), 2000) }
+      if (s === 'playing') { setPlaying(true); fails.current = 0 }
+      else if (s === 'unsupported') setPictures(true)
+      else if (s === 'failed' && ++fails.current >= 3) setPictures(true) // the camera was busy or slow three times running
+      else { setPlaying(false); again = window.setTimeout(() => setN(x => x + 1), s === 'failed' ? 1500 : 1000) }
     })
     return () => { stop(); window.clearTimeout(again) }
   }, [id, hd, pictures, visible, n])

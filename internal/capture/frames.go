@@ -13,6 +13,7 @@ import (
 	"mime"
 	"mime/multipart"
 	"net/http"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -46,7 +47,11 @@ func (s FFmpegSource) Run(ctx context.Context, emit func([]byte)) error {
 	if s.Width > 0 {
 		vf += fmt.Sprintf(",scale='min(%d,iw)':-2", s.Width) // never bigger than the camera sends
 	}
-	args := append(liveInputArgs(s.URL), "-an", "-vf", vf, "-q:v", "7", "-flush_packets", "1", "-f", "image2pipe", "-c:v", "mjpeg", "pipe:1")
+	outArgs := []string{"-an", "-vf", vf, "-q:v", "7", "-flush_packets", "1", "-f", "image2pipe", "-c:v", "mjpeg", "pipe:1"}
+	if UseRelay(s.URL) {
+		return s.runRelayed(ctx, outArgs, emit)
+	}
+	args := append(liveInputArgs(s.URL), outArgs...)
 	cmd := exec.CommandContext(ctx, ff, args...)
 	cmd.WaitDelay = 3 * time.Second
 	errb := &tail{n: 2048}
@@ -68,6 +73,30 @@ func (s FFmpegSource) Run(ctx context.Context, emit func([]byte)) error {
 		return rerr
 	}
 	return errors.New(PlainError(errb.String(), werr))
+}
+
+// runRelayed decodes the camera's shared stream (see relay.go).
+func (s FFmpegSource) runRelayed(ctx context.Context, out []string, emit func([]byte)) error {
+	cmd, err := newRelayed(ctx, s.URL, relayedLowDelay, out)
+	if err != nil {
+		return err
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	rerr := SplitJPEG(stdout, emit)
+	werr := cmd.Wait()
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	if rerr != nil && !errors.Is(rerr, io.EOF) && !errors.Is(rerr, os.ErrClosed) {
+		return rerr
+	}
+	return werr
 }
 
 // SplitJPEG cuts a stream of JPEGs (as ffmpeg's image2pipe writes them) into pictures.

@@ -35,11 +35,27 @@ func (r Recorder) Run(ctx context.Context) error {
 	if secs <= 0 {
 		secs = 60
 	}
-	args := append(inputArgs(r.URL),
-		"-map", "0:v:0", "-map", "0:a:0?", "-c:v", "copy", "-c:a", "aac", "-b:a", "64k",
-		"-f", "segment", "-segment_time", itoa(secs), "-segment_atclocktime", "1", "-reset_timestamps", "1", "-strftime", "1",
-		"-segment_format", "mp4", "-segment_format_options", "movflags=+frag_keyframe+empty_moov+default_base_moof",
-		filepath.Join(r.Dir, "%Y%m%d-%H%M%S.mp4"))
+	pattern := filepath.Join(r.Dir, "%Y%m%d-%H%M%S.mp4")
+	seg := []string{"-f", "segment", "-segment_time", itoa(secs), "-segment_atclocktime", "1", "-reset_timestamps", "1", "-strftime", "1",
+		"-segment_format", "mp4", "-segment_format_options", "movflags=+frag_keyframe+empty_moov+default_base_moof", pattern}
+	if UseRelay(r.URL) {
+		// the camera's shared stream (see relay.go): its sound is AAC already
+		out := append([]string{"-map", "0:v:0", "-map", "0:a:0?", "-c", "copy"}, seg...)
+		cmd, err := newRelayed(ctx, r.URL, nil, out)
+		if err != nil {
+			return err
+		}
+		cmd.Env = append(os.Environ(), "TZ=UTC")
+		cmd.WaitDelay = 5 * time.Second
+		cmd.Cancel = func() error { return cmd.Process.Signal(os.Interrupt) }
+		err = cmd.Run()
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return err
+	}
+	args := append(inputArgs(r.URL), "-map", "0:v:0", "-map", "0:a:0?", "-c:v", "copy", "-c:a", "aac", "-b:a", "64k")
+	args = append(args, seg...)
 	cmd := exec.CommandContext(ctx, ff, args...)
 	cmd.Env = append(os.Environ(), "TZ=UTC")
 	cmd.WaitDelay = 5 * time.Second

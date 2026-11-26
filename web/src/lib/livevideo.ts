@@ -34,7 +34,10 @@ export function codecFromInit(b: Uint8Array): string | null {
     return `avc1.${hex2(b[p + 1])}${hex2(b[p + 2])}${hex2(b[p + 3])}`
   }
   const hvc = findBox(b, 'hvcC')
-  if (hvc >= 0 && hvc + 4 + 13 <= b.length) {
+  // a box with no configuration in it (8 bytes): the server did not know the
+  // parameter sets, and no browser can decode what follows
+  const hvcSize = hvc >= 4 ? ((b[hvc - 4] << 24) | (b[hvc - 3] << 16) | (b[hvc - 2] << 8) | b[hvc - 1]) >>> 0 : 0
+  if (hvc >= 0 && hvcSize >= 8 + 23 && hvc + 4 + 13 <= b.length) {
     const p = hvc + 4
     const space = b[p + 1] >> 6, tier = (b[p + 1] >> 5) & 1, profile = b[p + 1] & 0x1f
     const compat = ((b[p + 2] << 24) | (b[p + 3] << 16) | (b[p + 4] << 8) | b[p + 5]) >>> 0
@@ -74,17 +77,18 @@ function concat(chunks: Uint8Array[]): Uint8Array {
 /** How far behind the newest picture the video plays (seconds), and when it jumps ahead. */
 const LIVE_TARGET = 0.08, LIVE_JUMP = 0.5
 
-export type LiveState = 'playing' | 'failed' | 'ended'
+export type LiveState = 'playing' | 'failed' | 'unsupported' | 'ended'
 
 /**
  * Plays url in video until the returned stop is called. onState: 'playing'
  * once the first picture shows; 'failed' when it never could (the browser
- * cannot play this camera's video: show pictures instead); 'ended' when a
+ * could not start it this time: try again); 'unsupported' when this browser
+ * cannot play the camera's video (show pictures instead); 'ended' when a
  * stream that played stopped (try again).
  */
 export function playLive(video: HTMLVideoElement, url: string, onState: (s: LiveState) => void): () => void {
   const MS = mediaSource()
-  if (!MS) { onState('failed'); return () => {} }
+  if (!MS) { onState('unsupported'); return () => {} }
   const ac = new AbortController()
   const ms = new MS()
   let stopped = false, played = false, sb: SourceBuffer | null = null
@@ -95,7 +99,7 @@ export function playLive(video: HTMLVideoElement, url: string, onState: (s: Live
     ac.abort()
     window.clearTimeout(watchdog)
     window.clearInterval(ticker)
-    onState(s === 'failed' && played ? 'ended' : s)
+    onState((s === 'failed' || s === 'unsupported') && played ? 'ended' : s)
   }
   // no picture after this long (a camera with a long key-frame gap, or video the browser will not decode)
   const watchdog = window.setTimeout(() => { if (!played) finish('failed') }, 15000)
@@ -138,6 +142,7 @@ export function playLive(video: HTMLVideoElement, url: string, onState: (s: Live
   ms.addEventListener('sourceopen', async () => {
     try {
       const res = await fetch(url, { signal: ac.signal, credentials: 'same-origin' })
+      if (res.status === 415) { finish('unsupported'); return }
       if (!res.ok || !res.body) { finish('failed'); return }
       const reader = res.body.getReader()
       let head: Uint8Array[] = []
@@ -153,7 +158,8 @@ export function playLive(video: HTMLVideoElement, url: string, onState: (s: Live
           if (end < 0) { if (all.length > 4 << 20) { finish('failed'); return } continue }
           const codec = codecFromInit(all.subarray(0, end))
           const type = `video/mp4; codecs="${codec}"`
-          if (!codec || !MS.isTypeSupported(type)) { finish('failed'); return }
+          if (!codec) { finish('failed'); return }
+          if (!MS.isTypeSupported(type)) { finish('unsupported'); return }
           sb = ms.addSourceBuffer(type)
           sb.addEventListener('updateend', () => { keepLive(); pump() })
           queue.push(all)

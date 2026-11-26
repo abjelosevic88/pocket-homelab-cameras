@@ -60,6 +60,11 @@ func liveInputArgs(url string) []string {
 	return append(append(append([]string{}, in...), low...), "-i", url)
 }
 
+// relayedLowDelay are the options for reading a relay to show it live: no
+// buffer of ffmpeg's own and a short look at the stream (it starts at a key
+// frame with everything needed to decode it).
+var relayedLowDelay = []string{"-fflags", "nobuffer", "-flags", "low_delay", "-probesize", "200000", "-analyzeduration", "500000"}
+
 // StreamInfo is what ffprobe says about a stream.
 type StreamInfo struct {
 	Codec  string  `json:"codec"`
