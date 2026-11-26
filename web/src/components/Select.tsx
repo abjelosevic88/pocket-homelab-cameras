@@ -1,4 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Icon } from './icons'
 
 export interface SelectOption { value: string; label: string; hint?: string; group?: string; /** shown, not pickable */ disabled?: boolean }
@@ -26,8 +27,9 @@ export function Select({ value, onChange, options, placeholder = 'Choose…', on
   const [q, setQ] = useState('')
   const [hl, setHl] = useState(0)
   const [busy, setBusy] = useState(false)
-  const [up, setUp] = useState(false)
+  const [pos, setPos] = useState<React.CSSProperties>({})
   const root = useRef<HTMLDivElement>(null)
+  const pop = useRef<HTMLDivElement>(null)
   const list = useRef<HTMLDivElement>(null)
   const search = useRef<HTMLInputElement>(null)
   const id = useId()
@@ -50,15 +52,29 @@ export function Select({ value, onChange, options, placeholder = 'Choose…', on
     if (!open) return
     setQ(''); setHl(Math.max(0, rows.findIndex(r => r.opt?.value === value)))
     const t = setTimeout(() => search.current?.focus(), 0)
-    const onDoc = (e: MouseEvent) => { if (root.current && !root.current.contains(e.target as Node)) setOpen(false) }
+    const onDoc = (e: MouseEvent) => { const t = e.target as Node; if (root.current && !root.current.contains(t) && !pop.current?.contains(t)) setOpen(false) }
     document.addEventListener('mousedown', onDoc)
     return () => { clearTimeout(t); document.removeEventListener('mousedown', onDoc) }
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setHl(0) }, [q])
+  // The list lives in <body> with fixed coordinates, so a dialog's scrolling body can't clip it.
   useLayoutEffect(() => {
-    if (!open || !root.current) return
-    const r = root.current.getBoundingClientRect()
-    setUp(window.innerHeight - r.bottom < 300 && r.top > 300)
+    if (!open) return
+    const place = () => {
+      if (!root.current) return
+      const r = root.current.getBoundingClientRect()
+      const below = window.innerHeight - r.bottom, above = r.top
+      const up = below < 300 && above > below
+      const width = Math.max(r.width, Math.min(360, window.innerWidth * 0.9))
+      const left = Math.max(8, Math.min(r.left, window.innerWidth - width - 8))
+      setPos(up
+        ? { left, minWidth: r.width, bottom: window.innerHeight - r.top + 4, maxHeight: above - 12 }
+        : { left, minWidth: r.width, top: r.bottom + 4, maxHeight: below - 12 })
+    }
+    place()
+    window.addEventListener('resize', place)
+    window.addEventListener('scroll', place, true)
+    return () => { window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true) }
   }, [open])
   useEffect(() => {
     const el = list.current?.querySelector<HTMLElement>(`[data-i="${hl}"]`)
@@ -90,8 +106,8 @@ export function Select({ value, onChange, options, placeholder = 'Choose…', on
         <span className="sel-val">{current ? current.label : placeholder}</span>
         <Chevron />
       </button>
-      {open && (
-        <div className={`sel-pop ${up ? 'up' : ''}`}>
+      {open && createPortal(
+        <div ref={pop} className="sel-pop" style={pos}>
           <div className="sel-search"><Icon name="search" size={14} /><input ref={search} value={q} onChange={e => setQ(e.target.value)} placeholder="Type to filter…" aria-label="Filter options" autoComplete="off" /></div>
           <div className="sel-list" role="listbox" id={id} ref={list}>
             {rows.length === 0 && <div className="sel-empty muted">No matches</div>}
@@ -109,7 +125,8 @@ export function Select({ value, onChange, options, placeholder = 'Choose…', on
               )
             })}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )
