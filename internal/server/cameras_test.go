@@ -36,6 +36,9 @@ func TestPersonalIsolation(t *testing.T) {
 	if !strings.Contains(fmt.Sprint(c["main_url"]), "h264Preview_01_main") {
 		t.Fatalf("the brand should fill the address: %v", c["main_url"])
 	}
+	if c["record"] != "off" {
+		t.Fatalf("a new camera is not recorded until recording is switched on: %v", c["record"])
+	}
 	n, _ := a.st.GetCamera(context.Background(), a.ids["Alice"], int64(num(c, "id")))
 	ev := a.addEvent(n.ID, "Alice", []string{"person"}, "Someone at the door.", time.Now())
 

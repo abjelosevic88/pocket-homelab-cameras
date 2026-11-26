@@ -144,6 +144,8 @@ func (s *Server) importFrigate(ctx context.Context, uid int64, b []byte) (map[st
 			c.Record = "off"
 		case rec.Retain.Mode == "all":
 			c.Record = "always"
+		case rec.Enabled != nil && *rec.Enabled:
+			c.Record = "events" // Frigate kept motion or events: record around events
 		}
 		if rec.Retain.Days > 0 {
 			c.RetainDays = clampInt(int(rec.Retain.Days+0.5), 1, 365)

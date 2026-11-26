@@ -277,8 +277,10 @@ func clamp01(v float64) float64 {
 	return v
 }
 
+// newCamera is a camera as it is added: watched for movement, not recorded
+// (recording is switched on on its page).
 func newCamera(uid int64) store.Camera {
-	return store.Camera{UserID: uid, Kind: "rtsp", Enabled: true, Record: "events", RetainDays: 7, EventDays: 30, Detect: true, Sensitivity: 5,
+	return store.Camera{UserID: uid, Kind: "rtsp", Enabled: true, Record: "off", RetainDays: 7, EventDays: 30, Detect: true, Sensitivity: 5,
 		Zones: []store.Zone{}, Labels: []string{"person", "vehicle", "parcel"}, Modes: []string{"away", "night"}, AICheck: true}
 }
 
