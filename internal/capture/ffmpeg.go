@@ -50,6 +50,16 @@ func inputArgs(url string) []string {
 	return append(args, "-i", url)
 }
 
+// liveInputArgs are inputArgs for pictures shown live: ffmpeg keeps no
+// buffer of its own and starts after a short look at the stream, so a
+// picture leaves as soon as it is decoded instead of seconds later.
+func liveInputArgs(url string) []string {
+	args := inputArgs(url)
+	in := args[:len(args)-2]
+	low := []string{"-fflags", "nobuffer", "-flags", "low_delay", "-probesize", "500000", "-analyzeduration", "1000000"}
+	return append(append(append([]string{}, in...), low...), "-i", url)
+}
+
 // StreamInfo is what ffprobe says about a stream.
 type StreamInfo struct {
 	Codec  string  `json:"codec"`

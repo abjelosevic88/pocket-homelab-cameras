@@ -81,7 +81,7 @@ export function LivePicture({ id, every = 1500, alt = '', className = '', paused
 }
 
 /** The live MJPEG stream; reconnects when the tab comes back. */
-export function LiveStream({ id, hd, alt = '', onError }: { id: number; hd?: boolean; alt?: string; onError?: () => void }) {
+export function LiveStream({ id, hd, smooth, alt = '', onError }: { id: number; hd?: boolean; smooth?: boolean; alt?: string; onError?: () => void }) {
   const [n, setN] = useState(0)
   const [visible, setVisible] = useState(document.visibilityState === 'visible')
   useEffect(() => {
@@ -90,7 +90,7 @@ export function LiveStream({ id, hd, alt = '', onError }: { id: number; hd?: boo
     return () => document.removeEventListener('visibilitychange', h)
   }, [])
   if (!visible) return <div className="live-pic"><img src={snapshotURL(id, n)} alt={alt} /></div>
-  return <div className="live-pic"><img key={`${n}-${hd ? 1 : 0}`} src={`${liveURL(id, hd)}${hd ? '&' : '?'}n=${n}`} alt={alt} onError={() => { onError?.(); window.setTimeout(() => setN(x => x + 1), 4000) }} draggable={false} /></div>
+  return <div className="live-pic"><img key={`${n}-${hd ? 1 : 0}`} src={`${liveURL(id, hd, smooth)}&n=${n}`} alt={alt} onError={() => { onError?.(); window.setTimeout(() => setN(x => x + 1), 4000) }} draggable={false} /></div>
 }
 
 /** A camera's online dot. */

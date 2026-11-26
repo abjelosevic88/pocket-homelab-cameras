@@ -28,7 +28,8 @@ export function mainLabel(e: Pick<CamEvent, 'labels' | 'kind'>): { label: string
 
 export const pictureURL = (e: { id: number }, n?: number) => `${V1}/events/${e.id}/picture.jpg${n ? `?n=${n}` : ''}`
 export const snapshotURL = (id: number, t?: number) => `${V1}/cameras/${id}/snapshot.jpg${t ? `?t=${t}` : ''}`
-export const liveURL = (id: number, hd = false) => `${V1}/cameras/${id}/live.mjpg${hd ? '?hd=1' : ''}`
+/** hd: the full-quality stream; smooth: a feed of its own from the small stream (RTSP cameras), else the few pictures a second the camera is checked with. */
+export const liveURL = (id: number, hd = false, smooth = false) => `${V1}/cameras/${id}/live.mjpg?${hd ? 'hd=1' : smooth ? 'smooth=1' : 'q=0'}`
 
 export const SCENES: Record<string, string> = { door: 'Front door', drive: 'Driveway', garden: 'Back garden', room: 'Living room' }
 

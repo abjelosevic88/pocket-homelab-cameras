@@ -44,9 +44,9 @@ func (s FFmpegSource) Run(ctx context.Context, emit func([]byte)) error {
 	}
 	vf := fmt.Sprintf("fps=%g", fps)
 	if s.Width > 0 {
-		vf += fmt.Sprintf(",scale=%d:-2", s.Width)
+		vf += fmt.Sprintf(",scale='min(%d,iw)':-2", s.Width) // never bigger than the camera sends
 	}
-	args := append(inputArgs(s.URL), "-an", "-vf", vf, "-q:v", "7", "-f", "image2pipe", "-c:v", "mjpeg", "pipe:1")
+	args := append(liveInputArgs(s.URL), "-an", "-vf", vf, "-q:v", "7", "-flush_packets", "1", "-f", "image2pipe", "-c:v", "mjpeg", "pipe:1")
 	cmd := exec.CommandContext(ctx, ff, args...)
 	cmd.WaitDelay = 3 * time.Second
 	errb := &tail{n: 2048}

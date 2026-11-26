@@ -28,6 +28,11 @@ export default function CameraPage() {
   const tab = (params.get('tab') as Tab) || 'day'
   const load = useCallback(() => { api.get<Camera>(`${V1}/cameras/${id}`).then(c => { setCam(c); setErr('') }).catch(e => setErr(errMsg(e))) }, [id])
   useEffect(() => { load() }, [load])
+  // the camera's state (online, moving, recording) changes on its own: look again every few seconds
+  useEffect(() => {
+    const t = window.setInterval(() => { if (document.visibilityState === 'visible') load() }, 5000)
+    return () => window.clearInterval(t)
+  }, [load])
   useOnChange(load)
   useCrumb(cam?.name, '/cameras')
   if (err) return <Empty title="Camera not found" icon="camera"><p>{err}</p><Link to="/" className="btn">Back to live</Link></Empty>
@@ -38,7 +43,7 @@ export default function CameraPage() {
   return (
     <div className="cam-page">
       <div className="cam-live">
-        {cam.enabled ? <LiveStream id={cam.id} hd={hd} alt={cam.name} /> : <div className="live-pic"><div className="live-pic-off"><Icon name="pause" size={26} /><span>Switched off — switch it on in Settings below</span></div></div>}
+        {cam.enabled ? <LiveStream id={cam.id} hd={hd} smooth={cam.kind === 'rtsp'} alt={cam.name} /> : <div className="live-pic"><div className="live-pic-off"><Icon name="pause" size={26} /><span>Switched off — switch it on in Settings below</span></div></div>}
         <div className="cam-live-bar">
           <Dot tone={!cam.enabled ? 'off' : st.online ? (st.event ? 'move' : 'ok') : 'bad'} />
           <span className="small">{!cam.enabled ? 'Switched off' : st.online ? (st.event ? 'Something is moving' : 'Live') : `Offline${st.error ? ` — ${st.error}` : ''}`}</span>

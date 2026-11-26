@@ -786,6 +786,9 @@ func (s *Server) handleLive(w http.ResponseWriter, r *http.Request) {
 	s.serveLive(w, r, c)
 }
 
+// liveFPS is how many pictures a second a viewer's own live feed has.
+const liveFPS = 12
+
 // serveLive streams pictures as MJPEG: the running camera's pictures, or
 // (hd=1, RTSP cameras) the full-quality stream decoded for this viewer.
 func (s *Server) serveLive(w http.ResponseWriter, r *http.Request, c *store.Camera) {
@@ -811,30 +814,55 @@ func (s *Server) serveLive(w http.ResponseWriter, r *http.Request, c *store.Came
 		fl.Flush()
 		return nil
 	}
+	headed := false
 	head := func() {
+		if headed {
+			return
+		}
+		headed = true
 		w.Header().Set("Content-Type", "multipart/x-mixed-replace; boundary=frame")
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("X-Accel-Buffering", "no")
 		w.WriteHeader(http.StatusOK)
 	}
-	if queryBool(r, "hd") && c.Kind == "rtsp" {
+	if c.Kind == "rtsp" && (queryBool(r, "hd") || queryBool(r, "smooth")) {
+		// a feed of its own for this viewer, smoother than the few pictures a
+		// second the camera is checked with: the full-quality stream (HD), or
+		// the small one. The newest picture goes first so the view is never empty.
+		src := capture.FFmpegSource{URL: capture.WithLogin(firstNonEmpty(c.SubURL, c.MainURL), c.Username, c.Password), FPS: liveFPS, Width: 960}
+		if queryBool(r, "hd") {
+			src = capture.FFmpegSource{URL: capture.WithLogin(c.MainURL, c.Username, c.Password), FPS: liveFPS, Width: 1920}
+		}
 		head()
-		_ = capture.FFmpegSource{URL: capture.WithLogin(c.MainURL, c.Username, c.Password), FPS: 10, Width: 1280}.Run(ctx, func(b []byte) {
+		if pic, _ := s.engine.latest(c.ID); pic != nil {
+			if write(pic) != nil {
+				return
+			}
+		}
+		sent := 0
+		_ = src.Run(ctx, func(b []byte) {
+			sent++
 			if write(b) != nil {
 				cancel()
 			}
 		})
-		return
+		if sent > 0 || ctx.Err() != nil {
+			return
+		}
+		// the camera would not give this viewer a stream of its own (some allow
+		// only one or two): carry on with the pictures it is checked with
 	}
 	ch, stop, ok := s.engine.subscribe(c.ID)
 	if !ok {
-		writeErr(w, http.StatusConflict, "this camera is switched off")
+		if !headed {
+			writeErr(w, http.StatusConflict, "this camera is switched off")
+		}
 		return
 	}
 	defer stop()
-	head()
-	if pic, _ := s.engine.latest(c.ID); pic != nil {
-		if write(pic) != nil {
+	if !headed { // (else the newest picture went out already)
+		head()
+		if pic, _ := s.engine.latest(c.ID); pic != nil && write(pic) != nil {
 			return
 		}
 	}
