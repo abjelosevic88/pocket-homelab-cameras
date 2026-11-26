@@ -1,11 +1,12 @@
 // Small pieces used on many pages.
 import React, { useEffect, useRef, useState } from 'react'
 import { Icon } from './icons'
-import { LABEL, MODES, mainLabel, snapshotURL, liveURL } from '../lib/cams'
+import { LABEL, MODES, mainLabel, snapshotURL, liveURL, liveVideoURL } from '../lib/cams'
 import type { CamEvent, Label, Mode } from '../lib/types'
 import { useAppState, openAction } from '../lib/data'
 import { useToast, CoreHint } from './ui'
 import { api } from '../lib/api'
+import { mediaSource, playLive } from '../lib/livevideo'
 
 /** person / vehicle / parcel / animal chips. */
 export function LabelChips({ labels, pet, small }: { labels: Label[]; pet?: string; small?: boolean }) {
@@ -91,6 +92,41 @@ export function LiveStream({ id, hd, smooth, alt = '', onError }: { id: number; 
   }, [])
   if (!visible) return <div className="live-pic"><img src={snapshotURL(id, n)} alt={alt} /></div>
   return <div className="live-pic"><img key={`${n}-${hd ? 1 : 0}`} src={`${liveURL(id, hd, smooth)}&n=${n}`} alt={alt} onError={() => { onError?.(); window.setTimeout(() => setN(x => x + 1), 4000) }} draggable={false} /></div>
+}
+
+/** An RTSP camera's live video as the camera sends it (its own rate, little
+ *  delay); pictures instead where the browser cannot play it. */
+export function LiveVideo({ id, hd, alt = '' }: { id: number; hd?: boolean; alt?: string }) {
+  const ref = useRef<HTMLVideoElement>(null)
+  const [pictures, setPictures] = useState(() => !mediaSource())
+  const [playing, setPlaying] = useState(false)
+  const [n, setN] = useState(0)
+  const [visible, setVisible] = useState(document.visibilityState === 'visible')
+  useEffect(() => {
+    const h = () => setVisible(document.visibilityState === 'visible')
+    document.addEventListener('visibilitychange', h)
+    return () => document.removeEventListener('visibilitychange', h)
+  }, [])
+  useEffect(() => { setPictures(!mediaSource()) }, [id, hd])
+  useEffect(() => {
+    const v = ref.current
+    if (pictures || !visible || !v) return
+    setPlaying(false)
+    let again = 0
+    const stop = playLive(v, `${liveVideoURL(id, hd)}&n=${n}`, s => {
+      if (s === 'playing') setPlaying(true)
+      else if (s === 'failed') setPictures(true)
+      else { setPlaying(false); again = window.setTimeout(() => setN(x => x + 1), 2000) }
+    })
+    return () => { stop(); window.clearTimeout(again) }
+  }, [id, hd, pictures, visible, n])
+  if (pictures) return <LiveStream id={id} hd={hd} smooth alt={alt} />
+  return (
+    <div className="live-pic">
+      <video ref={ref} muted autoPlay playsInline disablePictureInPicture aria-label={alt} />
+      {!playing && <img className="live-poster" src={snapshotURL(id, n + 1)} alt={alt} draggable={false} />}
+    </div>
+  )
 }
 
 /** A camera's online dot. */

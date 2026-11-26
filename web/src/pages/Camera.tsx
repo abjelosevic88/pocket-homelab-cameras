@@ -9,7 +9,7 @@ import type { CamEvent, Camera, Label, Mode, Share, Timeline, Zone } from '../li
 import { addDays, ago, fmtBytes, fmtDate, fmtTime, todayISO } from '../lib/format'
 import { Confirm, CopyField, Empty, Loading, SettingRow, Switch, Segmented, Tabs, useToast, errMsg, CoreHint } from '../components/ui'
 import { Icon } from '../components/icons'
-import { AppHint, Dot, EventIcon, InfoGrid, LabelChips, LiveStream } from '../components/bits'
+import { AppHint, Dot, EventIcon, InfoGrid, LabelChips, LiveStream, LiveVideo } from '../components/bits'
 import { DayBar, Player } from '../components/Player'
 import { ZonesEditor } from '../components/Zones'
 import { CameraDialog, useList } from '../components/dialogs'
@@ -43,7 +43,7 @@ export default function CameraPage() {
   return (
     <div className="cam-page">
       <div className="cam-live">
-        {cam.enabled ? <LiveStream id={cam.id} hd={hd} smooth={cam.kind === 'rtsp'} alt={cam.name} /> : <div className="live-pic"><div className="live-pic-off"><Icon name="pause" size={26} /><span>Switched off — switch it on in Settings below</span></div></div>}
+        {cam.enabled ? (cam.kind === 'rtsp' ? <LiveVideo id={cam.id} hd={hd} alt={cam.name} /> : <LiveStream id={cam.id} alt={cam.name} />) : <div className="live-pic"><div className="live-pic-off"><Icon name="pause" size={26} /><span>Switched off — switch it on in Settings below</span></div></div>}
         <div className="cam-live-bar">
           <Dot tone={!cam.enabled ? 'off' : st.online ? (st.event ? 'move' : 'ok') : 'bad'} />
           <span className="small">{!cam.enabled ? 'Switched off' : st.online ? (st.event ? 'Something is moving' : 'Live') : `Offline${st.error ? ` — ${st.error}` : ''}`}</span>

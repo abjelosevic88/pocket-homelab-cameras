@@ -31,6 +31,9 @@ export const snapshotURL = (id: number, t?: number) => `${V1}/cameras/${id}/snap
 /** hd: the full-quality stream; smooth: a feed of its own from the small stream (RTSP cameras), else the few pictures a second the camera is checked with. */
 export const liveURL = (id: number, hd = false, smooth = false) => `${V1}/cameras/${id}/live.mjpg?${hd ? 'hd=1' : smooth ? 'smooth=1' : 'q=0'}`
 
+/** An RTSP camera's video as it is (fragmented MP4): the full-quality stream with hd. */
+export const liveVideoURL = (id: number, hd = false) => `${V1}/cameras/${id}/live.mp4?hd=${hd ? 1 : 0}`
+
 export const SCENES: Record<string, string> = { door: 'Front door', drive: 'Driveway', garden: 'Back garden', room: 'Living room' }
 
 export const KIND_WORDS: Record<string, string> = { rtsp: 'RTSP stream', mjpeg: 'MJPEG stream', snapshot: 'Snapshot address', demo: 'Demo camera' }

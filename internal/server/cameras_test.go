@@ -153,6 +153,7 @@ func TestLinkScopes(t *testing.T) {
 		{"GET", "/api/v1/events/12", []string{"cameras:read"}, true},
 		{"GET", "/api/v1/events/12/picture.jpg", []string{"cameras:read"}, true},
 		{"GET", "/api/v1/cameras/3/live.mjpg", []string{"cameras:read"}, false},
+		{"GET", "/api/v1/cameras/3/live.mp4", []string{"cameras:read"}, false},
 		{"PUT", "/api/v1/mode", []string{"cameras:read"}, false},
 		{"PUT", "/api/v1/mode", []string{"cameras:write"}, true},
 		{"POST", "/api/v1/cameras/3/ring", []string{"cameras:write"}, true},

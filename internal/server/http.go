@@ -46,6 +46,7 @@ func (s *Server) Router() http.Handler {
 		r.Group(func(r chi.Router) {
 			r.Use(s.requireAuth)
 			r.Get("/cameras/{id}/live.mjpg", s.handleLive)
+			r.Get("/cameras/{id}/live.mp4", s.handleLiveVideo)
 			r.Get("/cameras/{id}/export.mp4", s.handleExportVideo)
 			r.Get("/segments/{id}/video", s.handleSegmentVideo)
 			r.Get("/events/{id}/clip.mp4", s.handleEventClip)

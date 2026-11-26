@@ -786,6 +786,56 @@ func (s *Server) handleLive(w http.ResponseWriter, r *http.Request) {
 	s.serveLive(w, r, c)
 }
 
+// handleLiveVideo sends an RTSP camera's video as it is (fragmented MP4) for
+// the browser to play: the full-quality stream with hd=1, else the small
+// one. 415 when the browser could not play what the camera sends (the page
+// then shows pictures instead).
+func (s *Server) handleLiveVideo(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	c, err := s.store.GetCamera(ctx, actorID(ctx), idParam(r, "id"))
+	if err != nil {
+		s.fail(w, err, "camera")
+		return
+	}
+	if !c.Enabled {
+		writeErr(w, http.StatusConflict, "this camera is switched off")
+		return
+	}
+	if c.Kind != "rtsp" {
+		writeErr(w, http.StatusUnsupportedMediaType, "this camera sends pictures, not video")
+		return
+	}
+	fl, ok := w.(http.Flusher)
+	if !ok {
+		writeErr(w, http.StatusInternalServerError, "streaming is not possible here")
+		return
+	}
+	url := capture.WithLogin(firstNonEmpty(c.SubURL, c.MainURL), c.Username, c.Password)
+	if queryBool(r, "hd") {
+		url = capture.WithLogin(c.MainURL, c.Username, c.Password)
+	}
+	codec, err := capture.CodecOf(ctx, url)
+	if err != nil {
+		writeErr(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	if !capture.Playable(codec) {
+		writeErr(w, http.StatusUnsupportedMediaType, "the camera sends "+codec+", which browsers do not play")
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
+	defer cancel()
+	w.Header().Set("Content-Type", "video/mp4")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("X-Accel-Buffering", "no")
+	w.Header().Set("X-Codec", codec)
+	w.WriteHeader(http.StatusOK)
+	fl.Flush()
+	if _, err := (capture.LiveVideo{URL: url, Codec: codec}).Run(ctx, w, fl.Flush); err != nil {
+		s.log.Debug("live video ended", "camera", c.ID, "err", err)
+	}
+}
+
 // liveFPS is how many pictures a second a viewer's own live feed has.
 const liveFPS = 12
 
