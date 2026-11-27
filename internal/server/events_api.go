@@ -19,7 +19,12 @@ import (
 
 // dayRange is [local midnight, next midnight) of a YYYY-MM-DD, as UTC ISO.
 func dayRange(day string) (string, string, bool) {
-	t, err := time.ParseInLocation("2006-01-02", day, time.Local)
+	return dayRangeIn(day, time.Local)
+}
+
+// dayRangeIn is dayRange for a day as it is in another time zone.
+func dayRangeIn(day string, loc *time.Location) (string, string, bool) {
+	t, err := time.ParseInLocation("2006-01-02", day, loc)
 	if err != nil {
 		return "", "", false
 	}

@@ -206,6 +206,23 @@ func (e *engine) state(id int64) camState {
 	return st
 }
 
+// offline reports a running camera that has sent no picture for a while
+// (offlineAfter, as watch counts it). A camera that only just started is not
+// offline yet, and one that is not running at all is not known to be.
+func (e *engine) offline(id int64) bool {
+	w := e.get(id)
+	if w == nil {
+		return false
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	since := w.lastAt
+	if since.IsZero() {
+		since = w.started
+	}
+	return !w.online && time.Since(since) > offlineAfter
+}
+
 // latest is the newest picture of a camera (nil = none yet).
 func (e *engine) latest(id int64) ([]byte, time.Time) {
 	w := e.get(id)

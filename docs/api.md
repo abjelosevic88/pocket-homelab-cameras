@@ -14,6 +14,16 @@ Times are ISO 8601 UTC; days are local `YYYY-MM-DD`.
 | `GET /search?q=&limit=` | `{hits: [{kind: camera\|event, id, title, subtitle, path, date, labels}]}`; `q=parcel` (or person, people, vehicle, animal, delivery) finds by what was seen |
 | `GET /stats?days=30` | Events per day by what they were, the hours of the week, each camera, false alarms, storage |
 
+## For Pocket Search, Day and Hub
+
+The same things in the shape every Pocket app answers in (Pocket Core's capabilities). A signed-in person may call them; a Pocket Core link token needs the scope and reaches nothing else with it. They only read, from what Cameras keeps: no camera is asked for a picture and no AI is called.
+
+| | |
+|---|---|
+| `GET /pocket/search?q=&limit=` | `pocket:search` → `{items: [{id: "camera:3"\|"event:12", title, snippet, kind: camera\|event, date, url}]}`: cameras first, then events, newest first; an event's title is what was seen, its snippet the camera and the AI's sentence. Words without a letter or digit find nothing |
+| `GET /pocket/day/YYYY-MM-DD?tz=` | `pocket:day` → `{date, summary, items: [{id: "event:12"\|"mode:4", time, title, sub, kind: person\|parcel\|vehicle\|animal\|doorbell\|alarm\|movement\|mode, note, url}], metrics}`: what `/day` has, in the person's time zone when `tz` says it. At most 200 items: on a busier day plain movement that alerted nobody is left out first, then the earliest |
+| `GET /pocket/widget` | `pocket:widget` → `{line: "Away · 2 new events", metrics, items: [{id, title, detail, url}], url}`: cameras that are offline first, then the five newest events of your own cameras you have not looked at |
+
 ## The mode
 
 | | |

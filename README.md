@@ -93,6 +93,16 @@ All optional, each switched on per person (Pocket Core → Links, or directly wi
 
 Cameras offers `cameras:read` and `cameras:write` to the rest of the box — Pocket Day writes visitors and deliveries into your journal, Pocket Search finds events (`!cameras parcel`), Pocket AI answers “who came today?” or switches the house to Away (`pocket_cameras_*` tools) — and publishes `cameras.person`, `vehicle`, `animal`, `parcel`, `doorbell`, `trigger`, `event`, `motion`, `offline`, `online`, `mode_changed` and `camera_added` for Pocket Flows.
 
+It also tells Pocket Core what it can do, so Pocket Search, Pocket Day and Pocket Hub find it on their own, each through its own link:
+
+| Link | What it gives |
+|---|---|
+| `pocket:search` | Your cameras and what they saw, by words (`!cameras parcel`, also `!cam` and `!cctv`) |
+| `pocket:day` | What the cameras saw on one day and when the house went Home, Away, Night or Off |
+| `pocket:widget` | The mode the house is in, cameras that are offline and the newest events you have not looked at |
+
+These only read, and only from what Cameras already keeps: no camera is asked for a picture and no AI is called. Nothing can be added to Cameras from a quick line.
+
 ## Run it
 
 ```sh

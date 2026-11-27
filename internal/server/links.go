@@ -35,6 +35,20 @@ var portable = &core.Portable{
 	},
 }
 
+// capabilities are what Pocket Search, Pocket Day and Pocket Hub may ask
+// Cameras (docs/capabilities.md in pocket-homelab-core): one route each, in
+// the shape every Pocket app answers in (capabilities.go). Register adds the
+// pocket:search, pocket:day and pocket:widget offers. There is no quick
+// capture: nothing here is made from a typed line, and the mode, a camera or
+// an event are not changed that way.
+var capabilities = core.Capabilities{
+	Search: &core.Searchable{What: "Your cameras by name and room, and what they saw: people, vehicles, animals, parcels and rings at the door",
+		Kinds: []string{"camera", "event"}, Bangs: []string{"cameras", "cam", "cctv"}},
+	Day: &core.DayFeed{Label: "Cameras", One: "event", Many: "events",
+		What: "What your cameras saw that day (visitors, deliveries, vehicles, animals, rings at the door) and when the house went Home, Away, Night or Off"},
+	Widget: &core.Widget{Title: "Cameras", What: "The mode the house is in, cameras that are offline and the latest events you have not looked at"},
+}
+
 // linkRoute is one request a Pocket Core link token may make.
 type linkRoute struct {
 	methods string
@@ -57,7 +71,7 @@ var errLinkScope = errors.New("outside the link's scope")
 
 // linkAllows reports whether a link token with these scopes may make this request.
 func linkAllows(scopes []string, r *http.Request) bool {
-	if portable.LinkAllows(scopes, r) {
+	if portable.LinkAllows(scopes, r) || capabilities.LinkAllows(scopes, r) {
 		return true
 	}
 	for _, lr := range linkRoutes {

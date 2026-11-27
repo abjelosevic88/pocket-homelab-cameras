@@ -292,11 +292,17 @@ func (s *Server) eventContext(ctx context.Context, uid int64, st store.Settings)
 // ---- telling people ----
 
 func eventTitle(ev *store.Event, camName string) string {
+	return eventWhat(ev) + " — " + camName
+}
+
+// eventWhat is what an event was, in a word or two: "Person", "Parcel",
+// "Doorbell", the pet's name, an alarm's own words.
+func eventWhat(ev *store.Event) string {
 	if ev.Kind == "doorbell" {
-		return "Doorbell — " + camName
+		return "Doorbell"
 	}
 	if ev.Kind == "trigger" {
-		return firstNonEmpty(ev.Note, "Alarm") + " — " + camName
+		return firstNonEmpty(ev.Note, "Alarm")
 	}
 	what := "Movement"
 	order := []string{"parcel", "person", "vehicle", "animal"}
@@ -309,7 +315,7 @@ func eventTitle(ev *store.Event, camName string) string {
 			break
 		}
 	}
-	return what + " — " + camName
+	return what
 }
 
 // alertReason says why an event does or does not alert ("" = it does).

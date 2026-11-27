@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"slices"
@@ -156,7 +157,6 @@ func (s *Server) handleDay(w http.ResponseWriter, r *http.Request) {
 // handleSearch finds cameras and events.
 func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	uid := actorID(ctx)
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
 	limit := queryInt(r, "limit")
 	if limit <= 0 || limit > 50 {
@@ -167,21 +167,10 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"hits": hits})
 		return
 	}
-	low := strings.ToLower(q)
-	cams, _ := s.store.ListCameras(ctx, uid)
+	cams, evs, _ := s.find(ctx, actorID(ctx), q, limit)
 	for _, c := range cams {
-		if strings.Contains(strings.ToLower(c.Name+" "+c.Room+" "+c.Brand+" "+c.Notes), low) {
-			hits = append(hits, map[string]any{"kind": "camera", "id": c.ID, "title": c.Name, "subtitle": joinNonEmpty(" · ", c.Room, c.Brand), "path": fmt.Sprintf("/cameras/%d", c.ID)})
-		}
+		hits = append(hits, map[string]any{"kind": "camera", "id": c.ID, "title": c.Name, "subtitle": joinNonEmpty(" · ", c.Room, c.Brand), "path": fmt.Sprintf("/cameras/%d", c.ID)})
 	}
-	// "person", "parcels", "delivery"… search by what was seen
-	f := store.EventFilter{Q: q, Limit: limit}
-	for _, l := range Labels {
-		if low == l || low == l+"s" || (l == "person" && low == "people") || (l == "parcel" && (low == "package" || low == "delivery" || low == "deliveries")) {
-			f = store.EventFilter{Label: l, Limit: limit}
-		}
-	}
-	evs, _, _ := s.store.ListEvents(ctx, uid, f)
 	for i := range evs {
 		e := &evs[i]
 		t, _ := time.Parse(time.RFC3339Nano, e.StartedAt)
@@ -192,6 +181,33 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		hits = hits[:limit]
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"hits": hits})
+}
+
+// find is what a search finds among what the person may watch (their own
+// cameras and the ones shared with them): the cameras by name, room, make and
+// notes, and the events, newest first, by the AI's sentence, the note, the
+// camera, the pet or the parcel. An error comes with whatever was found.
+func (s *Server) find(ctx context.Context, uid int64, q string, limit int) ([]store.Camera, []store.Event, error) {
+	low := strings.ToLower(q)
+	all, err := s.store.ListCameras(ctx, uid)
+	cams := []store.Camera{}
+	for _, c := range all {
+		if strings.Contains(strings.ToLower(c.Name+" "+c.Room+" "+c.Brand+" "+c.Notes), low) {
+			cams = append(cams, c)
+		}
+	}
+	// "person", "parcels", "delivery"… search by what was seen
+	f := store.EventFilter{Q: q, Limit: limit}
+	for _, l := range Labels {
+		if low == l || low == l+"s" || (l == "person" && low == "people") || (l == "parcel" && (low == "package" || low == "delivery" || low == "deliveries")) {
+			f = store.EventFilter{Label: l, Limit: limit}
+		}
+	}
+	evs, _, evErr := s.store.ListEvents(ctx, uid, f)
+	if err == nil {
+		err = evErr
+	}
+	return cams, evs, err
 }
 
 // handleStats are the numbers: events a day by what they were, the busy

@@ -253,10 +253,12 @@ func (s *Server) registerWithCore(ctx context.Context) error {
 		Description: "Your security cameras on your own server, replacing Frigate and the camera makers' apps: live view of every camera (RTSP, MJPEG or a snapshot address — Reolink, Hikvision, Dahua, Tapo, UniFi, Axis and more, found on the network), movement checked in the zones you draw, each event looked at by Pocket AI (person, vehicle, animal, parcel or nothing, in one sentence), recordings kept in one-minute pieces with a day timeline, Home / Away / Night / Off modes that switch by themselves, alerts on the phone, a doorbell webhook, and cameras shared with the household. Links to Pocket Alerts, Network, Movement, Travel, Parcels, Pets, Weather, Chat, Tasks, Notes, Photos, Files, Rooms and Home.",
 		Icon:        "/favicon.svg", Version: Version,
 		URL: s.cfg.CoreAppURL, PublicURL: s.cfg.BaseURL, HealthPath: "/healthz", EnvPrefix: "CAMERAS",
-		Publishes: eventTopics,
-		Offers:    linkOffers,
-		Portable:  portable,
-		Uses:      append(linkUses(), core.InferenceUse()),
+		Category:     "Home",
+		Capabilities: capabilities,
+		Publishes:    eventTopics,
+		Offers:       linkOffers,
+		Portable:     portable,
+		Uses:         append(linkUses(), core.InferenceUse()),
 	}
 	if s.cfg.BaseURL != "" {
 		m.OIDC = &core.OIDCRequest{RedirectURIs: []string{s.oidcCallbackURL()}}

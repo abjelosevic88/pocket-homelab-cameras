@@ -361,6 +361,7 @@ type EventFilter struct {
 	Unreviewed bool
 	Starred    bool
 	Nothing    bool // include false alarms
+	Own        bool // only the person's own cameras, not the ones shared with them
 	Q          string
 	Limit      int
 	Offset     int
@@ -393,6 +394,10 @@ func (f EventFilter) where(uid int64) (string, []any) {
 	}
 	if f.Unreviewed {
 		w = append(w, `e.reviewed = 0`)
+	}
+	if f.Own {
+		w = append(w, `e.user_id = ?`)
+		args = append(args, uid)
 	}
 	if f.Starred {
 		w = append(w, `e.starred = 1`)
